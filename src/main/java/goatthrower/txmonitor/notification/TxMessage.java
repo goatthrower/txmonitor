@@ -10,6 +10,8 @@ import org.bitcoinj.core.Address;
 
 @Immutable
 public class TxMessage implements Message {
+	private static final long serialVersionUID = -8722893493252280337L;
+
 	@Nonnull
 	private final Set<Address> addresses;
 	private final boolean received;
