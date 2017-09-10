@@ -30,8 +30,9 @@ public class TxNotifier {
 		return result;
 	}
 	
-	public void sendNotifications(@Nonnull Set<Address> addresses, boolean received) {
-		Message m = new TxMessage(addresses, received);
+	public void sendNotifications(@Nonnull Set<Address> addresses,
+			boolean received, boolean announced) {
+		Message m = new TxMessage(addresses, received, announced);
 		for (NotificationChannel c : channels) {
 			c.notify(m);
 		}

@@ -1,4 +1,7 @@
 apply plugin: 'java'
+apply plugin: 'application'
+
+mainClassName = "goatthrower.txmonitor.StartTxMonitor"
 
 repositories {
     mavenCentral()
@@ -17,4 +20,3 @@ dependencies {
 
     testCompile  'junit:junit:4.+'
 }
-

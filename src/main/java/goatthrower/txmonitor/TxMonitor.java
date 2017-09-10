@@ -8,14 +8,17 @@ import java.io.IOException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import org.bitcoinj.core.Address;
 import org.bitcoinj.core.AddressFormatException;
-import org.bitcoinj.core.Coin;
+import org.bitcoinj.core.Block;
 import org.bitcoinj.core.NetworkParameters;
+import org.bitcoinj.core.Peer;
+import org.bitcoinj.core.StoredBlock;
 import org.bitcoinj.core.Transaction;
 import org.bitcoinj.core.TransactionOutput;
 import org.bitcoinj.kits.WalletAppKit;
@@ -23,6 +26,7 @@ import org.bitcoinj.wallet.Wallet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.Service;
 
 import goatthrower.txmonitor.notification.TxNotifier;
@@ -36,21 +40,36 @@ public class TxMonitor {
 	
 	public TxMonitor() {
 		NetworkParameters params = Config.INSTANCE.getNetwork();
-		appkit = new WalletAppKit(params, new File("./var/", params.getId()), "txmon");
+		appkit = new WalletAppKit(params, new File(Config.txmonHome, "var/" + params.getId()), "txmon");
 	}
 	
 	public void startup() {
 		Service s = appkit.startAsync();
 		s.awaitRunning();
 		
-		Wallet wallet = appkit.wallet();
-		wallet.addCoinsReceivedEventListener((w, tx, pb, nb) -> coinsReceived(w, tx, pb, nb));
-		wallet.addCoinsSentEventListener((w, tx, pb, nb) -> coinsSent(w, tx, pb, nb));
+		appkit.wallet().addCoinsReceivedEventListener((w, tx, pb, nb) -> handleTransaction(w, tx, true));
+		appkit.chain().addNewBestBlockListener(b -> newBlock(b));
 		
 		sched.scheduleWithFixedDelay(() -> importAddresses(), 0, 1, TimeUnit.MINUTES);
 	}
 	
-	private void coinsReceived(Wallet wallet, Transaction tx, Coin prevBalance, Coin newBalance) {
+	private void newBlock(StoredBlock sb) {
+		Peer p = appkit.peerGroup().getConnectedPeers().get(0);
+		ListenableFuture<Block> lfb = p.getBlock(sb.getHeader().getHash());
+		Block block;
+		try {
+			block = lfb.get();
+			for (Transaction tx : block.getTransactions()) {
+				handleTransaction(appkit.wallet(), tx, false);
+			}
+		} catch (InterruptedException ex) {
+			logger.warn("Something went wrong here...", ex);
+		} catch (ExecutionException ex) {
+			logger.warn("Something went wrong here...", ex);
+		}
+	}
+	
+	private void handleTransaction(Wallet wallet, Transaction tx, boolean announced) {
 		Set<Address> addresses = new HashSet<>();
 		List<TransactionOutput> outputs = tx.getWalletOutputs(wallet);
 		for (TransactionOutput o : outputs) {
@@ -64,34 +83,17 @@ public class TxMonitor {
 				addresses.add(a);
 			}
 
-			byte[] raw = o.getScriptPubKey().getPubKeyHash();
-			a = new Address(Config.INSTANCE.getNetwork(), raw);
-			addresses.add(a);
+			try {
+				byte[] raw = o.getScriptPubKey().getPubKeyHash();
+				a = new Address(Config.INSTANCE.getNetwork(), raw);
+				addresses.add(a);
+			} catch (RuntimeException ex) {
+			}
 		}
 		
-		TxNotifier.INSTANCE.sendNotifications(addresses, true);
-	}
-	
-	private void coinsSent(Wallet wallet, Transaction tx, Coin prevBalance, Coin newBalance) {
-		Set<Address> addresses = new HashSet<>();
-		List<TransactionOutput> outputs = tx.getWalletOutputs(wallet);
-		for (TransactionOutput o : outputs) {
-			Address a = o.getAddressFromP2SH(Config.INSTANCE.getNetwork());
-			if (a != null) {
-				addresses.add(a);
-			}
-			
-			a = o.getAddressFromP2PKHScript(Config.INSTANCE.getNetwork());
-			if (a != null) {
-				addresses.add(a);
-			}
-			
-			byte[] raw = o.getScriptPubKey().getPubKeyHash();
-			a = new Address(Config.INSTANCE.getNetwork(), raw);
-			addresses.add(a);
+		if (!addresses.isEmpty()) {
+			TxNotifier.INSTANCE.sendNotifications(addresses, true, announced);
 		}
-		
-		TxNotifier.INSTANCE.sendNotifications(addresses, false);
 	}
 	
 	private void importAddresses() {

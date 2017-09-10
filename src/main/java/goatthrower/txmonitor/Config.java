@@ -13,7 +13,8 @@ import org.slf4j.LoggerFactory;
 
 public class Config {
 	private static Logger logger = LoggerFactory.getLogger(Config.class);
-	private static final File config = new File("./txmonitor.properties");
+	public static final File txmonHome = new File(System.getProperty("user.home"), ".txmon");
+	private static final File config = new File(txmonHome, "var/txmonitor.properties");
 	
 	public static Config INSTANCE = new Config();
 	
@@ -31,7 +32,7 @@ public class Config {
 			properties = tmp;
 		} catch (IOException ex) {
 			logger.warn("Could not load properties file", ex);
-			properties = new Properties();
+			System.exit(-1);
 		}
 	}
 	
@@ -48,7 +49,8 @@ public class Config {
 	}
 	
 	public File getAddressesFile() {
-		String filePath = properties.getProperty("addressesfile", "./addresses.txt");
+		String filePath = properties.getProperty("addressesfile",
+				txmonHome.getPath() + "/var/addresses.txt");
 		return new File(filePath);
 	}
 	

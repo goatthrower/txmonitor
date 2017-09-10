@@ -15,17 +15,21 @@ public class TxMessage implements Message {
 	@Nonnull
 	private final Set<Address> addresses;
 	private final boolean received;
+	private final boolean announced;
 	
 	private volatile String _message = null;
 	
-	public TxMessage(@Nonnull Set<Address> addresses, boolean received) {
+	public TxMessage(@Nonnull Set<Address> addresses, boolean received, boolean announced) {
 		this.addresses = new HashSet<>(addresses);
 		this.received = received;
+		this.announced = announced;
 	}
 	
 	@Nonnull
 	public String getHeader() {
-		return received ? "Incoming tx" : "Outgoing tx";
+		String result = received ? "Incoming tx " : "Outgoing tx ";
+		result += announced ? "announced" : "confirmed";
+		return result;
 	}
 	
 	@Nonnull
