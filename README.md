@@ -26,7 +26,7 @@ First you need to download and compile everything. An internet connection is man
 
 ## Watch addresses
 
-To watch new addresses just create a file called `addresses.txt` in the `var` directory. The file shall contain one address per line. You can watch normal addresses (like 1abcde...), segwit addresses (3abcde...) and deterministic wallets (xpub...).
+To watch new addresses just create a file called `addresses.txt` in the `var` directory. The file shall contain one address per line. At the moment you can watch normal addresses (like 1abcde...) and segwit addresses (3abcde...). Deterministic wallets (xpub...) might follow soon.
 
 TxMonitor checks once every minute for that file and imports all addresses and then deletes the file.
 
